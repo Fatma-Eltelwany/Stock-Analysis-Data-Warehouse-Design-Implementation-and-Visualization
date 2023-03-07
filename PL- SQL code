@@ -1,0 +1,334 @@
+--9.1 Tables Creation
+--9.1.1 Dimension Tables
+CREATE TABLE Date_dim
+(
+Date_key Date CONSTRAINT Date_pk_cons PRIMARY KEY,
+Year Varchar2(4),
+Quarter Varchar2(4),
+month_name varchar(25),
+Month Varchar2(10),
+week_of_year varchar(4),
+week_of_month varchar(4),
+Day Varchar(4),
+day_name varchar(20)
+);
+--------------------------------------------
+CREATE TABLE Stock_Market_Dim
+(
+SMarket_key NUMBER(4) CONSTRAINT SM_pk_cons PRIMARY KEY,
+Name Varchar2(150),
+Country Varchar2(100),
+picked_index varchar2(150)
+);
+-------------------------------------------------
+CREATE TABLE Industry_Dim
+(
+Industry_key NUMBER(4) CONSTRAINT Ind_pk_cons PRIMARY KEY,
+Name Varchar2(100),
+Sector Varchar2(100)
+);
+---------------------------------
+CREATE TABLE Company_Dim
+(
+
+Company_key NUMBER(4) CONSTRAINT Comp_pk_cons PRIMARY KEY,
+Name Varchar2(100),
+Stock_Symbol Varchar2(10),
+Headquarters_Location Varchar2(250),
+Type Varchar2(10),
+Equity_Type Varchar2(20),
+Web_Page Varchar2(400)
+);
+|----------------------------------
+CREATE TABLE Quarter_dim
+(
+Quarter_key date CONSTRAINT Quarter_pk_cons PRIMARY KEY,
+Quarter Varchar2(4),
+Year Varchar2(4)
+);
+--9.1.2 Fact Tables
+CREATE TABLE Stock_Prices_Fact (
+Spf_pkey NUMBER(20) CONSTRAINT SPF_pk_cons PRIMARY KEY,
+Full_date DATE,
+Company_key NUMBER(4),
+Stock_Market_key NUMBER(4),
+Industry_key NUMBER(4),
+Stock_Price NUMBER(8,2) ,
+Open NUMBER(8,2),
+High NUMBER(8,2),
+Low NUMBER(8,2),
+Volume VARCHAR2(15) ,
+COM_Change_Pct VARCHAR2(15),
+Market_Change_Pct VARCHAR2(15) ,
+Daily_Return NUMBER(8,2),
+Beta number(8,2)
+);
+------------------------------------------
+ALTER TABLE Stock_Prices_Fact
+ADD(
+CONSTRAINT Date_fk_cons FOREIGN KEY(Full_date) REFERENCES
+Date_Dim(Date_key),
+CONSTRAINT Comp_fk_cons FOREIGN KEY(Company_key) REFERENCES
+Company_Dim(Company_key),
+CONSTRAINT SM_fk_cons FOREIGN KEY(Stock_Market_key) REFERENCES
+Stock_Market_Dim(SMarket_key),
+CONSTRAINT Ind_fk_cons FOREIGN KEY(Industry_key) REFERENCES
+
+Industry_Dim(Industry_key)
+);
+--------------------------------------------
+/*Adding Quarter_key column to stock_prices_fact
+(This column will be used to create the aggregate fact table)*/
+alter table stock_prices_fact
+add quarter_key date;
+-----------------------------------------------
+Create table sp_aggregated_fact
+(Agg_Pkey number(10) CONSTRAINT Agg_pk_cons PRIMARY KEY,
+Quarter_key date,
+Company_key NUMBER(4),
+Stock_Market_key NUMBER(4),
+Industry_key NUMBER(4),
+Avg_SP Number(10,2),
+Avg_Volume Number(10,2),
+Earnings NUMBER(20,2),
+Revenue NUMBER(20,2),
+Net_Profit_Margin NUMBER(20,2),
+P_To_E NUMBER(20,2),
+P_Op_CashFlow NUMBER(20,2),
+Price_To_Book NUMBER(20,2),
+Price_To_Sales NUMBER(20,2),
+Market_Cap NUMBER(20,2),
+Outstanding_Shares NUMBER(20),
+Share_Turnover NUMBER(20,4),
+Current_assets NUMBER(20,2),
+Current_liabilities NUMBER(20,2),
+Inventory NUMBER(20,2),
+Cash_equivalents NUMBER(20,2),
+Current_Ratio NUMBER(20,4),
+Quick_Ratio NUMBER(20,4),
+Cash_Ratio NUMBER(20,4)
+);
+------------------------------------------
+ALTER TABLE SP_Aggregated_Fact
+ADD(
+CONSTRAINT Quarter_fk_cons FOREIGN KEY(Quarter_key) REFERENCES
+Quarter_dim(Quarter_key),
+CONSTRAINT Comp_fk1_cons FOREIGN KEY(Company_key) REFERENCES
+Company_Dim(Company_key),
+CONSTRAINT SM_fk1_cons FOREIGN KEY(Stock_Market_key) REFERENCES
+Stock_Market_Dim(SMarket_key),
+CONSTRAINT Ind_fk1_cons FOREIGN KEY(Industry_key) REFERENCES
+
+Industry_Dim(Industry_key)
+);
+--9.2 Data Insertion
+--9.2.1 Dimension Tables Insertions
+--Inserting Dates into Date dim
+Declare
+i date := to_date( ’01/01/2019’, ’MM/DD/YYYY’);
+max_date date := to_date(’12/31/2023’, ’MM/DD/YYYY’);
+Begin
+while i <= max_date
+loop
+insert into date_dim (DATE_KEY, YEAR, QUARTER, MONTH_NAME, MONTH,
+WEEK_OF_YEAR, WEEK_OF_MONTH, DAY, DAY_NAME)
+VALUES (i, to_char(i, ’YYYY’), ’Q’||to_char(i, ’Q’), to_char(i, ’Month’),
+to_char(i, ’MM’), to_char(i, ’WW’), to_char(i, ’W’),
+to_char(i, ’DD’), to_char(i, ’Day’));
+i := i + interval ’1’ day;
+end loop;
+End;
+--------------------------------------
+--Inserting Quarters and Year into Quarter dim
+Declare
+i date := to_date( ’03/30/2019’, ’MM/DD/YYYY’);
+max_date date := to_date(’12/30/2023’, ’MM/DD/YYYY’);
+begin
+while i <= max_date
+loop
+insert into Quarter_dim (Quarter_key, Quarter,Year)
+VALUES (i, ’Q’||to_char(i, ’Q’),to_char(i, ’YYYY’));
+i := i + interval ’3’ Month ;
+15
+end loop;
+end;
+----------------------------------------------
+--Populating the stock market dimension
+insert into stock_market_dim (NAME, COUNTRY, PICKED_INDEX)
+values (’NASDAQ’, ’United States’, ’NASDAQ Composite’);
+----------------------------
+insert into stock_market_dim (NAME, COUNTRY, PICKED_INDEX)
+values (’EGX’, ’Egypt’, ’EGX100’);
+----------------------------
+insert into stock_market_dim (NAME, COUNTRY, PICKED_INDEX)
+values (’Frankfurt Stock Exchange’ , ’Germany’, ’DAX30’);
+----------------------------
+insert into stock_market_dim (NAME, COUNTRY, PICKED_INDEX)
+values (’JPX’, ’Japan’, ’Nikkei 225’);
+--------------------------------------------
+Populating the industry dimension
+insert into industry_dim (NAME, SECTOR)
+values (’Real Estate Operations’, ’Real Estate’);
+---------------------------------------
+insert into industry_dim ( NAME, SECTOR)
+values (’Passenger Transportation Services’, ’Industrials’);
+-----------------------------
+insert into industry_dim ( NAME, SECTOR)
+values (’Professional and Commercial Services’, ’Industrials’);
+--------------------------
+insert into industry_dim (NAME, SECTOR)
+values ( ’Telecommunications Services’, ’Technology’);
+---------------------------------------
+--Populating The Company dimension
+Insert into Company_dim
+(NAME, STOCK_SYMBOL, HEADQUARTERS_LOCATION, TYPE, EQUITY_TYPE, WEB_PAGE)
+Values
+(’Fawry’, ’FWRY’, ’Egypt’, ’Equity’, ’ORD’, ’fawry.com’);
+------------------------- -------------------------- ---------------------------
+Insert into Company_dim
+(NAME, STOCK_SYMBOL, HEADQUARTERS_LOCATION, TYPE, EQUITY_TYPE, WEB_PAGE)
+Values
+’Swvl’, ’SWVL’, ’United Arab Emirates’, ’Equity’, ’ORD’, ’swvl.com’);
+16
+-------------------------- -------------------------- --------------------------
+Insert into Company_dim
+(NAME, STOCK_SYMBOL, HEADQUARTERS_LOCATION, TYPE, EQUITY_TYPE, WEB_PAGE)
+Values
+(’El Obour Real Estate’, ’OBRI’, ’Egypt’, ’Equity’, ’ORD’, ’www.elobouregy.com’);
+-------------------------- -------------------------- --------------------------
+Insert into Company_dim
+(NAME, STOCK_SYMBOL, HEADQUARTERS_LOCATION, TYPE, EQUITY_TYPE, WEB_PAGE)
+Values
+(’Amer Group’, ’AMER’, ’Egypt’, ’Equity’, ’ORD’, ’amer-group.com’);
+-------------------------- -------------------------- --------------------------
+Insert into Company_dim
+(NAME, STOCK_SYMBOL, HEADQUARTERS_LOCATION, TYPE, EQUITY_TYPE, WEB_PAGE)
+Values
+(’Arab Real Estate’, ’RREI’, ’Egypt’, ’Equity’, ’ORD’,
+’arabianrealestate-aleco.com’);
+-------------------------- -------------------------- --------------------------
+Insert into Company_dim
+(NAME, STOCK_SYMBOL, HEADQUARTERS_LOCATION, TYPE, EQUITY_TYPE, WEB_PAGE)
+Values
+( ’Arab Developers Holding’, ’ARAB’, ’Egypt’, ’Equity’, ’ORD’,
+’ad-holding.com’);
+--------------------------------------------------------------------------------
+--9.2.2 Fact Tables Insertions
+--Extracting quarters from dates and inserting them into the quarter key
+column in Stock prices fact
+declare
+min_key number(20);
+max_key number(20);
+begin
+select min(spf_pkey) into min_key from stock_prices_fact;
+select max(spf_pkey) into max_key from stock_prices_fact;
+while min_key <= max_key
+loop
+update stock_prices_fact
+set quarter_key = ( select case when month in (to_char(’01’), to_char(’02’),
+to_char(’03’))
+then to_date(’03/30’||extract(YEAR from full_date), ’MM/DD/YYYY’)
+17
+when month in (to_char(’04’), to_char(’05’),
+to_char(’06’)) then
+to_date(’06/30/’||extract(YEAR from full_date), ’MM/DD/YYYY’)
+when month in (to_char(’07’), to_char(’08’),
+to_char(’09’))
+then to_date(’09/30/’||extract(YEAR from full_date), ’MM/DD/YYYY’)
+when month in (to_char(’10’), to_char(’11’),
+to_char(’12’))
+then to_date(’12/30/’||extract(YEAR from full_date), ’MM/DD/YYYY’)
+end as test
+from (
+select full_date, to_char(full_date,’Mm’) as month
+from stock_prices_fact where spf_pkey = min_key))
+where spf_pkey = min_key ;
+min_key:= min_key +1;
+end loop;
+end;
+-------------------------------------------------
+--Inserting data into sp aggregated fact
+Insert into sp_aggregated_fact (quarter_key, company_key,
+stock_market_key, industry_key, Avg_SP, Avg_Volume)
+select * from (
+select quarter_key, company_key, stock_market_key,
+industry_key,
+max(round(avg_stock_price,2)) as Avg_SP_Q,
+max(round(avg_volume)) as Avg_Volume_Q from (
+select quarter_key, company_key, stock_market_key,
+industry_key,
+avg(stock_price) over(partition by company_key,
+quarter_key) as avg_stock_price,
+avg(volume) over(partition by company_key,
+quarter_key) as avg_volume
+from stock_prices_fact)
+group by quarter_key, company_key,
+stock_market_key, industry_key
+order by company_key, quarter_key);
+--9.3 Data Transformation
+--Transforming the volume column
+--adding a backup column for the volume so I can distinguish
+between values that are in million and thousand and removing
+(M and K) in the original column
+Alter table stock_prices_fact
+add
+Volume_bckup varchar2 (20) ;
+Update stock_prices_fact
+set Volume_bckup = volume ;
+--Removing M and K from the column
+Update stock_prices_fact
+Set volume = replace (volume, ’M’,’’);
+Update stock_prices_fact
+Set volume = replace (volume, ’K’,’’);
+---Multiplying by 1000 and 1000000
+Update stock_prices_fact
+Set volume = volume*1000
+Where Volume_bckup like ’%K’
+Update stock_prices_fact
+Set volume = volume*1000000
+Where Volume_bckup like ’%M’
+-Deleting the backup volume colum
+Alter table stock_prices_fact
+Drop column Volume_bckup
+-----------------------------------------
+--Transforming the Market Change pct and Com Change pct columns
+---Removing ’%’ from both columns [ com_change_pct , market_change_pct]
+Update stock_prices_fact
+Set com_change_pct = replace (com_change_pct, ’%’,’’);
+Update stock_prices_fact
+Set market_change_pct = replace (market_change_pct, ’%’,’’);
+-----------------------------------------------------
+
+--9.4 Measures Calculations
+--Calculating the beta measure in the stock prices fact
+declare
+min_com number(4);
+max_com number(4);
+begin
+select min(company_key) into min_com from stock_prices_fact;
+select max(company_key) into max_com from stock_prices_fact;
+while min_com <= max_com
+loop
+update stock_prices_fact
+set beta = (select distinct cov/var from (
+select company_key, covar_pop(com_change_pct, market_change_pct)
+over(partition by company_key) as cov,
+variance(market_change_pct) over(partition by company_key) as var
+from stock_prices_fact
+where company_key = min_com))
+where company_key = min_com;
+min_com := min_com+1;
+end loop;
+end;
+--Calculating the share turnover measure
+update sp_aggregated_fact
+set share_turnover = avg_volume/outstanding_shares;
+--Calculating the current ratio measure
+update sp_aggregated_fact
+set current_ratio = current_assets/current_liabilities;
+--Calculating the quick ratio measure
+update sp_aggregated_fact
+set quick_ratio = (current_assets - inventory)/current_liabilities;
+--Calculating the cash ratio measure
+update sp_aggregated_fact
+set cash_ratio = cash_equivalents/current_liabilities;
